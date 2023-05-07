@@ -7,10 +7,10 @@ async function readSecretFolder() {
     for (const file of files) {
       if (file.isFile()) {
         const name = path.parse(file.name).name;
-        const ext = path.parse(file.name).ext;
+        const ext = path.parse(file.name).ext.slice(1);
         const stats = await fs.stat(`03-files-in-folder/secret-folder/${file.name}`);
         const size = stats.size / 1024;
-        console.log(`${name}-${ext}-${size.toFixed(3)}kb`);
+        console.log(`${name} - ${ext} - ${size.toFixed(3)}kb`);
       }
     }
   } catch (err) {
