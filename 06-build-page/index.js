@@ -1,59 +1,131 @@
-const fs = require('fs').promises;
+const fs = require('fs');
 const path = require('path');
+const {log} = require("util");
 
-const TEMPLATE_PATH = path.join(__dirname, 'template.html');
-const COMPONENTS_DIR = path.join(__dirname, '06-build-page/components');
-const STYLES_DIR = path.join(__dirname, '06-build-page/styles');
-const ASSETS_DIR = path.join(__dirname, '06-build-page/assets');
-const DIST_DIR = path.join(__dirname, '06-build-page/project-dist');
+const componentsDir = path.join(__dirname, 'components');
+const templatePath = path.join(__dirname, 'template.html');
+const stylesDir = path.join(__dirname, 'styles');
+const assetsDir = path.join(__dirname, 'assets');
 
-async function buildPage() {
-  try {
-    await fs.mkdir(DIST_DIR);
+const projectDistDir = path.join(__dirname, 'project-dist');
+const stylePath = path.join(projectDistDir, 'style.css');
+const indexPath = path.join(projectDistDir, 'index.html');
+const distAssetsDir = path.join(projectDistDir, 'assets');
 
-    const template = await fs.readFile(TEMPLATE_PATH, 'utf-8');
+fs.mkdir(projectDistDir, { recursive: true }, err => {
+  if (err) {
+    console.error(err);
+  } else {
+    console.log('project-dist directory created!');
+  }
+});
 
-    const tags = template.match(/{{\w+}}/g);
-    if (!tags) {
-      throw new Error('Шаблон не содержит тегов');
-    }
+fs.readFile(templatePath, 'utf8', (err, template) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
 
-    let result = template;
-    for (const tag of tags) {
-      const componentName = tag.slice(2, -2);
-      const componentPath = path.join(COMPONENTS_DIR, `${componentName}.html`);
-      const componentContent = await fs.readFile(componentPath, 'utf-8');
-      result = result.replace(tag, componentContent);
-    }
+  const tags = template.match(/{{\w+}}/g);
 
-    const indexPath = path.join(DIST_DIR, 'index.html');
-    await fs.writeFile(indexPath, result);
+  if (!tags) {
+    console.log('No template tags found!');
+    return;
+  }
 
-    const styles = await fs.readdir(STYLES_DIR);
-    const css = await Promise.all(
-      styles.map(async (filename) => {
-        if (path.extname(filename) === '.css') {
-          const filepath = path.join(STYLES_DIR, filename);
-          return await fs.readFile(filepath, 'utf-8');
-        }
+  const components = tags.map(tag => {
+    const componentName = tag.slice(2, -2);
+    const componentPath = path.join(componentsDir, `${componentName}.html`);
+
+    return fs.promises.readFile(componentPath, 'utf8')
+      .then(component => {
+        return {
+          tag: tag,
+          component: component
+        };
       })
-    );
-    const cssPath = path.join(DIST_DIR, 'style.css');
-    await fs.writeFile(cssPath, css.join('\n'));
+      .catch(err => {
+        console.error(`Error reading component file "${componentPath}":`, err);
+        return null;
+      });
+  });
 
-    const assetsPath = path.join(DIST_DIR, 'assets');
-    await fs.mkdir(assetsPath);
-    await copyDirectory(ASSETS_DIR, assetsPath);
+  Promise.all(components).then(results => {
+    results.forEach(result => {
+      if (result) {
+        template = template.replace(result.tag, result.component);
+      }
+    });
 
-    console.log('Страница успешно построена');
-  } catch (error) {
-    console.error(`Ошибка построения страницы: ${error.message}`);
+    fs.writeFile(indexPath, template, err => {
+      if (err) {
+        console.error(err);
+      } else {
+        console.log('index.html created!');
+      }
+    });
+  });
+});
+
+fs.readdir(stylesDir, (err, files) => {
+  if (err) {
+    console.error(err);
+    return;
+  }
+
+  const cssFiles = files.filter(file => path.extname(file) === '.css');
+
+  const styles = cssFiles.map(file => {
+    const filePath = path.join(stylesDir, file);
+    return fs.promises.readFile(filePath, 'utf8');
+  });
+
+  Promise.all(styles).then(results => {
+    const style = results.join('\n');
+    fs.writeFile(stylePath, style, err => {
+      if (err) {
+        console.error(err);
+      } else {
+        console.log('style.css created!');
+      }
+    });
+  });
+});
+
+async function copyAssets() {
+  console.log('===============================');
+  await fs.mkdir(distAssetsDir, { recursive: true }, (err) => {
+    if (err) throw err;
+  });
+  const files = await fs.promises.readdir(assetsDir);
+
+  for (const file of files) {
+    const sourcePath = path.join(assetsDir, file);
+    const targetPath = path.join(distAssetsDir, file);
+    const stat = await fs.stat(sourcePath);
+
+    if (stat.isFile()) {
+      await fs.copyFile(sourcePath, targetPath);
+    } else if (stat.isDirectory()) {
+      await copyFolder(sourcePath, targetPath);
+    }
+  }
+  console.log('Assets copied successfully');
+}
+
+async function copyFolder(source, target) {
+  await fs.mkdir(target, { recursive: true });
+  const files = await fs.readdir(source);
+  for (const file of files) {
+    const sourcePath = path.join(source, file);
+    const targetPath = path.join(target, file);
+    const stat = await fs.stat(sourcePath);
+    if (stat.isFile()) {
+      await fs.copyFile(sourcePath, targetPath);
+    } else if (stat.isDirectory()) {
+      await copyFolder(sourcePath, targetPath);
+    }
   }
 }
 
-buildPage();
-
-
-
-
-
+copyAssets().catch(console.error);
