@@ -1,7 +1,8 @@
 const readline = require('readline');
 const fs = require('fs');
+const path = require('path');
 
-const filePath = './01-read-file/text.txt';
+const filePath = path.join(__dirname, 'text.txt');
 
 fs.access(filePath, (err) => {
   if (err) {
@@ -21,20 +22,20 @@ const writeStream = fs.createWriteStream(filePath, { flags: 'a' });
 
 console.log('Привет! Введите текст или нажмите ctrl + c для выхода.');
 
-// Ожидаем ввода текста
 rl.on('line', (input) => {
   if (input === 'exit') {
-    console.log('До свидания!');
-    rl.close();
-    writeStream.end();
-    process.exit();
+    exit();
   }
   writeStream.write(`${input}\n`);
 });
 
 rl.on('SIGINT', () => {
+  exit();
+});
+
+function exit(){
   console.log('До свидания!');
   rl.close();
   writeStream.end();
   process.exit();
-});
+}
