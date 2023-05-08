@@ -1,6 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const {log} = require("util");
 
 const componentsDir = path.join(__dirname, 'components');
 const templatePath = path.join(__dirname, 'template.html');
@@ -93,7 +92,6 @@ fs.readdir(stylesDir, (err, files) => {
 });
 
 async function copyAssets() {
-  console.log('===============================');
   await fs.mkdir(distAssetsDir, { recursive: true }, (err) => {
     if (err) throw err;
   });
@@ -102,10 +100,10 @@ async function copyAssets() {
   for (const file of files) {
     const sourcePath = path.join(assetsDir, file);
     const targetPath = path.join(distAssetsDir, file);
-    const stat = await fs.stat(sourcePath);
+    const stat = await fs.promises.stat(sourcePath);
 
     if (stat.isFile()) {
-      await fs.copyFile(sourcePath, targetPath);
+      await fs.promises.copyFile(sourcePath, targetPath);
     } else if (stat.isDirectory()) {
       await copyFolder(sourcePath, targetPath);
     }
@@ -114,14 +112,14 @@ async function copyAssets() {
 }
 
 async function copyFolder(source, target) {
-  await fs.mkdir(target, { recursive: true });
-  const files = await fs.readdir(source);
+  await fs.promises.mkdir(target, { recursive: true });
+  const files = await fs.promises.readdir(source);
   for (const file of files) {
     const sourcePath = path.join(source, file);
     const targetPath = path.join(target, file);
-    const stat = await fs.stat(sourcePath);
+    const stat = await fs.promises.stat(sourcePath);
     if (stat.isFile()) {
-      await fs.copyFile(sourcePath, targetPath);
+      await fs.promises.copyFile(sourcePath, targetPath);
     } else if (stat.isDirectory()) {
       await copyFolder(sourcePath, targetPath);
     }
